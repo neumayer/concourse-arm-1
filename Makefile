@@ -10,7 +10,7 @@ ARCH ?= arm64
 
 # concourse version
 #
-VERSION ?= 5.2.0
+VERSION ?= 5.5.1
 
 
 # directory where the results of a local compilation should
@@ -43,7 +43,7 @@ image-%: dockerized-%
 
 dockerized-arm64: ARCH=arm64
 dockerized-arm: ARCH=arm
-dockerized-%: binaries registry-image-resource
+dockerized-%: binaries registry-image-resource docker-image-resource
 	tar -czvf ./build/$(ARCH)/concourse.tgz -C $(dir $(BUILD_DIR)) concourse
 
 
@@ -91,6 +91,22 @@ registry-image-resource:
 		docker export registry-image-resource-$(ARCH) | gzip > ./rootfs.tgz && \
 		echo '{ "type": "registry-image-arm", "version": "0.0.6" }' > resource_metadata.json
 	docker rm registry-image-resource-$(ARCH)
+
+docker-image-resource:
+	DOCKER_BUILDKIT=1 \
+		docker build \
+			--build-arg arch=$(ARCH) \
+			-t docker-image-resource:$(ARCH) \
+			--target docker-image-resource \
+			.
+	mkdir -p $(BUILD_DIR)/resource-types/docker-image
+	docker rm docker-image-resource-$(ARCH) || true
+	docker create --name docker-image-resource-$(ARCH) \
+		docker-image-resource:$(ARCH)
+	cd $(BUILD_DIR)/resource-types/docker-image && \
+		docker export docker-image-resource-$(ARCH) | gzip > ./rootfs.tgz && \
+		echo '{ "type": "docker-image-arm", "version": "0.0.1" }' > resource_metadata.json
+	docker rm docker-image-resource-$(ARCH)
 
 
 clean:

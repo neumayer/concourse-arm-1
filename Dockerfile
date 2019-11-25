@@ -143,6 +143,18 @@ FROM base-${arch} AS registry-image-resource-build
 	RUN go build -ldflags "-extldflags '-static'" -o /assets/out 	./cmd/out
 	RUN go build -ldflags "-extldflags '-static'" -o /assets/check 	./cmd/check
 
+# docker-image-resource
+#
+FROM base-${arch} AS docker-image-resource-build
+
+	#COPY ./src/docker-image-resource /src
+	ENV CGO_ENABLED 0
+	COPY ./src/docker-image-resource /go/src/github.com/concourse/docker-image-resource
+	
+	WORKDIR /go/src/github.com/concourse/docker-image-resource
+
+	RUN go build -o /assets/check github.com/concourse/docker-image-resource/cmd/check
+        RUN go build -o /assets/print-metadata github.com/concourse/docker-image-resource/cmd/print-metadata
 
 
 FROM arm64v8/ubuntu:bionic 	AS rootfs-arm64
@@ -182,6 +194,12 @@ FROM rootfs-${arch} AS registry-image-resource
 		/assets/ \
 		/opt/resource/
 
-	RUN apt update -y && \
-		apt install -y ca-certificates && \
-		rm -rf /var/lib/apt/lists/*
+FROM rootfs-${arch} AS docker-image-resource
+
+	COPY --from=docker-image-resource-build \
+		/assets/ \
+		/opt/resource/
+
+#	RUN apt update -y && \
+#		apt install -y ca-certificates && \
+#		rm -rf /var/lib/apt/lists/*
